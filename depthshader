@@ -1,0 +1,70 @@
+
+Shader "Unlit/depthshader"
+{
+	Properties
+	{
+		_MainTex("Texture", 2D) = "white" {}
+	    
+		_Zmin("mindepth",Range(0.0 , 100)) = 0.1
+		_Zmax("maxdepth",Range(0.1 , 100)) = 1
+		//_ScaleFactorR("r",Range(1.0 , 10)) = 5
+	}
+		SubShader
+		{
+
+			Pass
+		{
+			CGPROGRAM
+			#pragma vertex vert
+			#pragma fragment frag
+
+			#include "UnityCG.cginc"
+			#include "Lighting.cginc"
+			#include "AutoLight.cginc"
+
+		float _Zmin;
+		float _Zmax;
+		
+
+		struct appdata
+	{
+		float4 vertex : POSITION;
+		float2 uv : TEXCOORD0;
+		float3 normal : NORMAL;
+	};
+
+	struct v2f
+	{
+		float2 uv : TEXCOORD0;
+		float4 vertex : SV_POSITION;
+		float3 normalDir : TEXCOORD1;
+	};
+
+	v2f vert(appdata v)
+	{
+		v2f o;
+		o.vertex = UnityObjectToClipPos(v.vertex);//Transforms a point from object space to the camera’s clip space in homogeneous coordinates
+		o.uv = v.uv;
+		o.normalDir = UnityObjectToWorldNormal(v.normal);
+		return o;
+	}
+
+	sampler2D _MainTex;
+	
+	fixed4 frag(v2f i) : SV_Target
+	{
+		float3 normalDirection = normalize(i.normalDir);
+		float4 v = i.vertex;
+		float zed = -v.z;//depth of the vertex (that is the distance between the vertex and camera)
+		
+		float f1 = max(dot(normalize(WorldSpaceLightDir(v)), normalDirection), 0.005);//The horizontal axis of the 2D texture derived from stanard lambertian shading computation n.l
+	    float f2 = clamp(1. - log(zed / _Zmin) / log(_Zmax / _Zmin), 0.005, 0.995);//the vertical "detail" axis D
+		
+		float3 texColor = tex2D(_MainTex, float2(f1,1.- f2)).rgb;//accoding to the axis, find the color of the point in the 2D texture image.
+		float4 finalColor = float4(texColor,1);
+		return finalColor;
+	}
+		ENDCG
+	}
+	}
+}
